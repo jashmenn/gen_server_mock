@@ -1,14 +1,20 @@
 %%%-------------------------------------------------------------------
 %%% File    : gen_server_mock.erl
 %%% Author  : nmurray@attinteractive.com
-%%% Description : desc
+%%% Description : Mocking for gen_server. Expectations are ordered, every
+%%%    message required and no messages more than are expected are allowed.
+%%%
 %%% Created     : 2009-08-05
+%%% Inspired by: http://erlang.org/pipermail/erlang-questions/2008-April/034140.html
 %%%-------------------------------------------------------------------
 
 -module(gen_server_mock).
 -behaviour(gen_server).
 
--export([start/0, start/1]).
+% API
+-export([new/0, 
+        expect/3, expect_call/2, expect_info/2, expect_cast/2,
+        assertExpectations/1]).
 
 % gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -18,6 +24,15 @@
 -define(SERVER, ?MODULE).
 -define(DEFAULT_CONFIG, {}).
 
+-record(state, {
+        expectations
+}).
+
+-record(expectation, {
+        type,
+        lambda
+}).
+
 %%====================================================================
 %% API
 %%====================================================================
@@ -26,17 +41,45 @@
 %% Description: Alias for start_link
 %%--------------------------------------------------------------------
 start() ->
-    start_link(?DEFAULT_CONFIG). 
-
-start(Config) ->
-    start_link(Config). 
+    start_link([]). 
 
 %%--------------------------------------------------------------------
 %% Function: start_link() -> {ok,Pid} | ignore | {error,Error}
 %% Description: Starts the server
 %%--------------------------------------------------------------------
 start_link(Config) ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [Config], []).
+    gen_server:start_link(?MODULE, [Config], []). % start a nameless server
+
+%%--------------------------------------------------------------------
+%% Function: new() -> {ok, Mock} | {error, Error}
+%% Description: 
+%%--------------------------------------------------------------------
+new() ->
+    case start() of
+        {ok, Pid} ->
+            {ok, Pid};
+        {error, Error} ->
+            {error, Error};
+        Other ->
+            {error, Other}
+    end.
+
+expect(Mock, Type, Callback) ->
+    Exp = #expectation{type=Type, lambda=Callback},
+    added = gen_server:call(Mock, {expect, Exp}),
+    ok.
+
+expect_call(Mock, Callback) ->
+    expect(Mock, call, Callback).
+
+expect_info(Mock, Callback) ->
+    expect(Mock, info, Callback).
+
+expect_cast(Mock, Callback) ->
+    expect(Mock, cast, Callback).
+
+assertExpectations(Mock) ->
+    gen_server:call(Mock, {assertExpectations}).
 
 %%====================================================================
 %% gen_server callbacks
@@ -50,8 +93,9 @@ start_link(Config) ->
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
 
-init([]) -> 
-    {ok, todo_state}.
+init(Args) -> 
+    InitialState = #state{expectations=[]},
+    {ok, InitialState}.
 
 %%--------------------------------------------------------------------
 %% Function: %% handle_call(Request, From, State) -> {reply, Reply, State} |
@@ -63,20 +107,17 @@ init([]) ->
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
 
-handle_call(_Request, _From, State) -> 
-    {reply, todo_reply, State}.
+% return the state
+handle_call(state, _From, State) ->
+    {reply, {ok, State}, State};
 
-% e.g.
-% handle_call({create_ring}, _From, State) ->
-%     {Reply, NewState} = handle_create_ring(State),
-%     {reply, Reply, NewState};
-%
-% handle_call({join, OtherNode}, _From, State) ->
-%     {Reply, NewState} = handle_join(OtherNode, State),
-%     {reply, Reply, NewState};
-% ...
-% etc.
+handle_call({expect, Expectation}, _From, State) ->
+    {ok, NewState} = store_expectation(Expectation, State),
+    {reply, added, NewState};
 
+handle_call(Request, From, State) -> 
+    {Reply, NewState} = reply_with_next_expectation(call, Request, From, undef, undef, State),
+    {reply, Reply, NewState}
 
 %%--------------------------------------------------------------------
 %% Function: handle_cast(Msg, State) -> {noreply, State} |
@@ -84,8 +125,9 @@ handle_call(_Request, _From, State) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
-handle_cast(_Msg, State) -> 
-    {noreply, State}.
+handle_cast(Msg, State) -> 
+    {_Reply, NewState} = reply_with_next_expectation(cast, undef, undef, Msg, undef, State).
+    {noreply, NewState}.
 
 %%--------------------------------------------------------------------
 %% Function: handle_info(Info, State) -> {noreply, State} |
@@ -93,8 +135,9 @@ handle_cast(_Msg, State) ->
 %%                                       {stop, Reason, State}
 %% Description: Handling all non call/cast messages
 %%--------------------------------------------------------------------
-handle_info(_Info, State) -> 
-    {noreply, State}.
+handle_info(Info, State) -> 
+    {_Reply, NewState} = reply_with_next_expectation(info, undef, undef, undef, Info, State).
+    {noreply, NewState}.
 
 %%--------------------------------------------------------------------
 %% Function: terminate(Reason, State) -> void()
@@ -112,3 +155,16 @@ terminate(_Reason, _State) ->
 %%--------------------------------------------------------------------
 code_change(_OldVsn, State, _Extra) -> 
     {ok, State}.
+
+%%
+%% private functions
+%%
+store_expectation(Expectation, State) -> % {ok, NewState}
+    NewExpectations = [Expectation|State#state.expectations],  
+    NewState = State#state{expectations = NewExpectations},
+    {ok, NewState}.
+
+reply_with_next_expectation(Type, Request, From, Msg, Info, State) -> % -> {Reply, NewState}
+    % check the type of the next expectation, if it doesn't match raise an error
+    % 
+    

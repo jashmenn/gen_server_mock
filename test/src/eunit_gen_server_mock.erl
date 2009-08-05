@@ -28,16 +28,23 @@ teardown(Servers) ->
     % ok.
     ok.
 
-node_state_test_() ->
+everything_working_normally_test_() ->
   {
       setup, fun setup/0, fun teardown/1,
       fun () ->
          ?assert(true =:= true),
-         % {ok, State1} = gen_cluster:call(node1, {state}),
-         % ?assert(is_record(State1, srv_state) =:= true),
+         {ok, Mock} = gen_server_mock:new(),
 
-         % {ok, Plist} = gen_cluster:call(node1, {'$gen_cluster', plist}),
-         % ?assertEqual(3, length(Plist)),
+         gen_server_mock:expect(Mock, call, fun({foo, _Anything}) -> ok end),
+         gen_server_mock:expect_call(Mock, fun({bar, _Else}) -> ok end),
+
+         ok = gen_server:call(Mock, {foo, hi}),  
+         ok = gen_server:call(Mock, {bar, bye}),  
+
+         ok = gen_server_mock:assertExpectations(Mock),
          {ok}
       end
   }.
+
+% missing expectations, verify it fails
+% unexpected messages, fail
