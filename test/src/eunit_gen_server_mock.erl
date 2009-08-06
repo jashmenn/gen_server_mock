@@ -2,49 +2,76 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
+-define (DEBUG, true).
+-define (TRACE(X, M), case ?DEBUG of
+  true -> io:format(user, "TRACE ~p:~p ~p ~p~n", [?MODULE, ?LINE, X, M]);
+  false -> ok
+end).
+
+-define(exit_error_name(Exception),
+    ((fun () ->
+    {{{ErrorName, _Info }, _Trace }, _MoreInfo} = Exception,
+    ErrorName
+    end)())).
+
 setup() ->
-    % ?TRACE("seed servers", self()),
-    % {ok, Node1Pid} = stoplight_srv:start_named(node1, {seed, undefined}),
-    % {ok, _Node2Pid} = stoplight_srv:start_named(node2, {seed, Node1Pid}),
-    % {ok, _Node3Pid} = stoplight_srv:start_named(node3, {seed, Node1Pid}),
-    % [node1, node2, node3].
     ok.
 
-teardown(Servers) ->
-    % io:format(user, "teardown: ~p ~p ~n", [Servers, global:registered_names()]),
-    % lists:map(fun(Pname) -> 
-    %     Pid = whereis(Pname),
-    %     % io:format(user, "takedown: ~p ~p ~n", [Pname, Pid]),
-    %     gen_cluster:cast(Pid, stop), 
-    %     unregister(Pname)
-    %  end, Servers),
-
-    % lists:map(fun(Pname) -> 
-    %     Pid = global:whereis_name(Pname),
-    %     % io:format(user, "takedown: ~p ~p ~n", [Pname, Pid]),
-    %     gen_cluster:cast(Pid, stop), 
-    %     global:unregister_name(Pname)
-    % end, global:registered_names()),
-    % ok.
+teardown(_Arg) ->
     ok.
 
-everything_working_normally_test_() ->
+everything_working_normally_test_not() ->
   {
       setup, fun setup/0, fun teardown/1,
       fun () ->
-         ?assert(true =:= true),
          {ok, Mock} = gen_server_mock:new(),
-
-         gen_server_mock:expect(Mock, call, fun({foo, _Anything}) -> ok end),
-         gen_server_mock:expect_call(Mock, fun({bar, _Else}) -> ok end),
+         gen_server_mock:expect(Mock, call, fun({foo, hi}, _From, _State) -> ok end),
+         gen_server_mock:expect_call(Mock, fun({bar, bye}, _From, _State) -> ok end),
 
          ok = gen_server:call(Mock, {foo, hi}),  
          ok = gen_server:call(Mock, {bar, bye}),  
 
-         ok = gen_server_mock:assertExpectations(Mock),
+         ok = gen_server_mock:assert_expectations(Mock),
          {ok}
       end
   }.
 
-% missing expectations, verify it fails
-% unexpected messages, fail
+missing_expectations_test_not() ->
+  {
+      setup, fun setup/0, fun teardown/1,
+      fun () ->
+         {ok, Mock} = gen_server_mock:new(),
+         gen_server_mock:expect(Mock, call, fun({foo, hi}, _From, _State) -> ok end),
+         gen_server_mock:expect_call(Mock, fun({bar, bye}, _From, _State) -> ok end),
+
+         ok = gen_server:call(Mock, {foo, hi}),  
+
+         %% TODO - hide the gen_server termination ERROR REPORT
+         Result = try gen_server_mock:assert_expectations(Mock)
+         catch
+             exit:Exception -> Exception
+         end,
+         ErrorName = ?exit_error_name(Result),
+         ?assertEqual(unmet_gen_server_expectation, ErrorName),
+         {ok}
+      end
+  }.
+
+unexpected_messages_test_() ->
+  {
+      setup, fun setup/0, fun teardown/1,
+      fun () ->
+         {ok, Mock} = gen_server_mock:new(),
+         gen_server_mock:expect_call(Mock, fun({bar, bye}, _From, _State) -> ok end),
+
+         %% TODO - hide the gen_server termination ERROR REPORT
+         Result = try gen_server:call(Mock, {foo, hi})
+         catch
+             exit:Exception -> Exception
+         end,
+         ErrorName = ?exit_error_name(Result),
+         ?assertEqual(unexpected_request_made, ErrorName),
+
+         {ok}
+      end
+  }.

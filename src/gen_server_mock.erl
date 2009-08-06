@@ -4,6 +4,7 @@
 %%% Description : Mocking for gen_server. Expectations are ordered, every
 %%%    message required and no messages more than are expected are allowed.
 %%%
+%%% Expectations get the same input as the handle_(whatever) gen_server methods. They should return -> ok | {ok, NewState}
 %%% Created     : 2009-08-05
 %%% Inspired by: http://erlang.org/pipermail/erlang-questions/2008-April/034140.html
 %%%-------------------------------------------------------------------
@@ -14,7 +15,7 @@
 % API
 -export([new/0, 
         expect/3, expect_call/2, expect_info/2, expect_cast/2,
-        assertExpectations/1]).
+        assert_expectations/1]).
 
 % gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -32,6 +33,41 @@
         type,
         lambda
 }).
+
+% steal assert from eunit
+-define(assert(BoolExpr),
+    ((fun () ->
+        case (BoolExpr) of
+        true -> ok;
+        __V -> .erlang:error({assertion_failed,
+                      [{module, ?MODULE},
+                       {line, ?LINE},
+                       {expression, (??BoolExpr)},
+                       {expected, true},
+                       {value, case __V of false -> __V;
+                           _ -> {not_a_boolean,__V}
+                           end}]})
+        end
+      end)())).
+
+-define(raise(ErrorName),
+    erlang:error({ErrorName,
+                  [{module, ?MODULE},
+                      {line, ?LINE}]})).
+
+-define(raise_info(ErrorName, Info),
+    erlang:error({ErrorName,
+                  [{module, ?MODULE},
+                      {line, ?LINE},
+                      {info, Info}
+                  ]})).
+
+
+-define (DEBUG, true).
+-define (TRACE(X, M), case ?DEBUG of
+  true -> io:format(user, "TRACE ~p:~p ~p ~p~n", [?MODULE, ?LINE, X, M]);
+  false -> ok
+end).
 
 %%====================================================================
 %% API
@@ -78,8 +114,8 @@ expect_info(Mock, Callback) ->
 expect_cast(Mock, Callback) ->
     expect(Mock, cast, Callback).
 
-assertExpectations(Mock) ->
-    gen_server:call(Mock, {assertExpectations}).
+assert_expectations(Mock) ->
+    gen_server:call(Mock, assert_expectations).
 
 %%====================================================================
 %% gen_server callbacks
@@ -93,7 +129,7 @@ assertExpectations(Mock) ->
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
 
-init(Args) -> 
+init(_Args) -> 
     InitialState = #state{expectations=[]},
     {ok, InitialState}.
 
@@ -115,9 +151,13 @@ handle_call({expect, Expectation}, _From, State) ->
     {ok, NewState} = store_expectation(Expectation, State),
     {reply, added, NewState};
 
+handle_call(assert_expectations, _From, State) ->
+    {ok, NewState} = handle_assert_expectations(State),
+    {reply, ok, NewState};
+
 handle_call(Request, From, State) -> 
     {Reply, NewState} = reply_with_next_expectation(call, Request, From, undef, undef, State),
-    {reply, Reply, NewState}
+    {reply, Reply, NewState}.
 
 %%--------------------------------------------------------------------
 %% Function: handle_cast(Msg, State) -> {noreply, State} |
@@ -126,7 +166,7 @@ handle_call(Request, From, State) ->
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
 handle_cast(Msg, State) -> 
-    {_Reply, NewState} = reply_with_next_expectation(cast, undef, undef, Msg, undef, State).
+    {_Reply, NewState} = reply_with_next_expectation(cast, undef, undef, Msg, undef, State),
     {noreply, NewState}.
 
 %%--------------------------------------------------------------------
@@ -136,7 +176,7 @@ handle_cast(Msg, State) ->
 %% Description: Handling all non call/cast messages
 %%--------------------------------------------------------------------
 handle_info(Info, State) -> 
-    {_Reply, NewState} = reply_with_next_expectation(info, undef, undef, undef, Info, State).
+    {_Reply, NewState} = reply_with_next_expectation(info, undef, undef, undef, Info, State),
     {noreply, NewState}.
 
 %%--------------------------------------------------------------------
@@ -164,7 +204,51 @@ store_expectation(Expectation, State) -> % {ok, NewState}
     NewState = State#state{expectations = NewExpectations},
     {ok, NewState}.
 
+pop(L) -> % {Result, NewList} | {undef, []}
+    case L of
+        [] -> {undef, []};
+        List -> {lists:last(List), lists:sublist(List, 1, length(List) - 1)}
+    end.
+
+pop_expectation(State) -> % {ok, Expectation, NewState}
+    {Expectation, RestExpectations} = case pop(State#state.expectations) of
+        {undef, []} -> ?raise(no_gen_server_mock_expectation);
+        {Head, Rest} -> {Head, Rest}
+    end,
+    NewState = State#state{expectations = RestExpectations},
+    {ok, Expectation, NewState}.
+
+handle_assert_expectations(State) -> % {ok, State}
+    ExpLeft = State#state.expectations,
+    case length(ExpLeft) > 0 of
+        true -> ?raise_info(unmet_gen_server_expectation, ExpLeft);
+        false -> ok
+    end,
+    {ok, State}.
+
 reply_with_next_expectation(Type, Request, From, Msg, Info, State) -> % -> {Reply, NewState}
-    % check the type of the next expectation, if it doesn't match raise an error
-    % 
-    
+    {ok, Expectation, NewState} = pop_expectation(State),
+    ?assert(Type =:= Expectation#expectation.type),
+
+    {ok, NewState2} = try call_expectation_lambda(Expectation, Type, Request, From, Msg, Info, NewState) of
+        {ok, State2} -> {ok, State2}
+    catch
+        error:function_clause ->
+            ?raise_info(unexpected_request_made, {Expectation, Type, Request, From, Msg, Info, NewState})
+    end,
+
+    % {ok, NewState2} = call_expectation_lambda(Expectation, Type, Request, From, Msg, Info, NewState),  
+    {ok, NewState2}.
+
+call_expectation_lambda(Expectation, Type, Request, From, Msg, Info, State) -> % {ok, NewState}
+    L = Expectation#expectation.lambda,
+    Response = case Type of 
+       call -> L(Request, From, State);
+       cast -> L(Msg, State);
+       info -> L(Info, State);
+          _ -> L(Request, From, Msg, Info, State)
+    end,
+    case Response of
+        {ok, NewState} -> {ok, NewState};
+        ok             -> {ok, State}
+    end.
