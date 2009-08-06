@@ -100,12 +100,6 @@ new() ->
             {error, Other}
     end.
 
-
-%%--------------------------------------------------------------------
-%% Function: new() -> {ok, Mock} | {error, Error}
-%% Description: 
-%%--------------------------------------------------------------------
-
 expect(Mock, Type, Callback) ->
     Exp = #expectation{type=Type, lambda=Callback},
     added = gen_server:call(Mock, {expect, Exp}),
