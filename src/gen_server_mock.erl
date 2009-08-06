@@ -100,6 +100,12 @@ new() ->
             {error, Other}
     end.
 
+
+%%--------------------------------------------------------------------
+%% Function: new() -> {ok, Mock} | {error, Error}
+%% Description: 
+%%--------------------------------------------------------------------
+
 expect(Mock, Type, Callback) ->
     Exp = #expectation{type=Type, lambda=Callback},
     added = gen_server:call(Mock, {expect, Exp}),
@@ -156,7 +162,7 @@ handle_call(assert_expectations, _From, State) ->
     {reply, ok, NewState};
 
 handle_call(Request, From, State) -> 
-    {Reply, NewState} = reply_with_next_expectation(call, Request, From, undef, undef, State),
+    {ok, Reply, NewState} = reply_with_next_expectation(call, Request, From, undef, undef, State),
     {reply, Reply, NewState}.
 
 %%--------------------------------------------------------------------
@@ -166,7 +172,7 @@ handle_call(Request, From, State) ->
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
 handle_cast(Msg, State) -> 
-    {_Reply, NewState} = reply_with_next_expectation(cast, undef, undef, Msg, undef, State),
+    {ok, _Reply, NewState} = reply_with_next_expectation(cast, undef, undef, Msg, undef, State),
     {noreply, NewState}.
 
 %%--------------------------------------------------------------------
@@ -176,7 +182,7 @@ handle_cast(Msg, State) ->
 %% Description: Handling all non call/cast messages
 %%--------------------------------------------------------------------
 handle_info(Info, State) -> 
-    {_Reply, NewState} = reply_with_next_expectation(info, undef, undef, undef, Info, State),
+    {ok, _Reply, NewState} = reply_with_next_expectation(info, undef, undef, undef, Info, State),
     {noreply, NewState}.
 
 %%--------------------------------------------------------------------
@@ -226,20 +232,19 @@ handle_assert_expectations(State) -> % {ok, State}
     end,
     {ok, State}.
 
-reply_with_next_expectation(Type, Request, From, Msg, Info, State) -> % -> {Reply, NewState}
+reply_with_next_expectation(Type, Request, From, Msg, Info, State) -> % -> {ok, Reply, NewState}
     {ok, Expectation, NewState} = pop_expectation(State),
     ?assert(Type =:= Expectation#expectation.type),
 
-    {ok, NewState2} = try call_expectation_lambda(Expectation, Type, Request, From, Msg, Info, NewState) of
-        {ok, State2} -> {ok, State2}
+    {ok, Reply, NewState2} = try call_expectation_lambda(Expectation, Type, Request, From, Msg, Info, NewState) of
+        {ok, R, State2} -> {ok, R, State2}
     catch
         error:function_clause ->
             ?raise_info(unexpected_request_made, {Expectation, Type, Request, From, Msg, Info, NewState})
     end,
+    {ok, Reply, NewState2}.
 
-    % {ok, NewState2} = call_expectation_lambda(Expectation, Type, Request, From, Msg, Info, NewState),  
-    {ok, NewState2}.
-
+% hmm what if we want better response. 
 call_expectation_lambda(Expectation, Type, Request, From, Msg, Info, State) -> % {ok, NewState}
     L = Expectation#expectation.lambda,
     Response = case Type of 
@@ -248,7 +253,9 @@ call_expectation_lambda(Expectation, Type, Request, From, Msg, Info, State) -> %
        info -> L(Info, State);
           _ -> L(Request, From, Msg, Info, State)
     end,
-    case Response of
-        {ok, NewState} -> {ok, NewState};
-        ok             -> {ok, State}
+    case Response of % hmmm
+        ok                       -> {ok, ok,       State};
+        {ok, NewState}           -> {ok, ok,       NewState};
+        {ok, ResponseValue, NewState} -> {ok, ResponseValue, NewState};
+        Other -> Other
     end.

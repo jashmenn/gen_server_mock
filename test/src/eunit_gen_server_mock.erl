@@ -57,7 +57,7 @@ missing_expectations_test_not() ->
       end
   }.
 
-unexpected_messages_test_() ->
+unexpected_messages_test_not() ->
   {
       setup, fun setup/0, fun teardown/1,
       fun () ->
@@ -72,6 +72,31 @@ unexpected_messages_test_() ->
          ErrorName = ?exit_error_name(Result),
          ?assertEqual(unexpected_request_made, ErrorName),
 
+         {ok}
+      end
+  }.
+
+special_return_values_test_() ->
+  {
+      setup, fun setup/0, fun teardown/1,
+      fun () ->
+         {ok, Mock} = gen_server_mock:new(),
+
+         gen_server_mock:expect_call(Mock, fun(one,  _From, _State)            -> ok end),
+         gen_server_mock:expect_call(Mock, fun(two,  _From,  State)            -> {ok, State} end),
+         gen_server_mock:expect_call(Mock, fun(three, _From,  State)           -> {ok, good, State} end),
+         gen_server_mock:expect_call(Mock, fun({echo, Response}, _From, State) -> {ok, Response, State} end),
+         gen_server_mock:expect_cast(Mock, fun(fish, State) -> {ok, State} end),
+         gen_server_mock:expect_info(Mock, fun(cat,  State) -> {ok, State} end),
+
+         ok = gen_server:call(Mock, one),
+         ok = gen_server:call(Mock, two),
+         good = gen_server:call(Mock, three),
+         tree = gen_server:call(Mock, {echo, tree}),
+         ok = gen_server:cast(Mock, fish),
+         Mock ! cat,
+
+         gen_server_mock:assert_expectations(Mock),
          {ok}
       end
   }.
