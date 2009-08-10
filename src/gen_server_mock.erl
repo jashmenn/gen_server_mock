@@ -117,6 +117,12 @@ expect_cast(Mock, Callback) ->
 assert_expectations(Mock) ->
     gen_server:call(Mock, assert_expectations).
 
+stop([H|T]) ->
+    gen_server:cast(H, {'$gen_server_mock', stop}),
+    stop(T);
+stop([]) ->
+    ok.
+
 %%====================================================================
 %% gen_server callbacks
 %%====================================================================
@@ -165,6 +171,8 @@ handle_call(Request, From, State) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
+handle_cast({'$gen_server_mock', stop}, State) -> 
+    {stop, normal, State};
 handle_cast(Msg, State) -> 
     {_Reply, NewState} = reply_with_next_expectation(cast, undef, undef, Msg, undef, State),
     {noreply, NewState}.
