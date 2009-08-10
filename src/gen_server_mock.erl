@@ -114,8 +114,13 @@ expect_info(Mock, Callback) ->
 expect_cast(Mock, Callback) ->
     expect(Mock, cast, Callback).
 
-assert_expectations(Mock) ->
-    gen_server:call(Mock, assert_expectations).
+assert_expectations(Mock) when is_pid(Mock) ->
+    assert_expectations([Mock]);
+assert_expectations([H|T]) ->
+    gen_server:call(H, assert_expectations),
+    ok = assert_expectations(T);
+assert_expectations([]) ->
+    ok.
 
 stop(H) when is_pid(H) ->
     stop([H]);
