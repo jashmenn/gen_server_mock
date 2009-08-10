@@ -13,7 +13,7 @@
 -behaviour(gen_server).
 
 % API
--export([new/0, 
+-export([new/0, stop/1,
         expect/3, expect_call/2, expect_info/2, expect_cast/2,
         assert_expectations/1]).
 
@@ -117,6 +117,8 @@ expect_cast(Mock, Callback) ->
 assert_expectations(Mock) ->
     gen_server:call(Mock, assert_expectations).
 
+stop(H) when is_pid(H) ->
+    stop([H]);
 stop([H|T]) ->
     gen_server:cast(H, {'$gen_server_mock', stop}),
     stop(T);
