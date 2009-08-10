@@ -6,3 +6,4 @@ html
 .DS_Store
 README.html
 .gen_cluster_session.vim
+coverage
