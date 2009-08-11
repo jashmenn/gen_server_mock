@@ -57,6 +57,13 @@ Alpha. API may change depending on feedback. Hosted on Github - patches readily 
 
 I suspect that one could write a more general process mocking library relatively easily.
 
+## References
+
+* [Initial blog post](http://www.xcombinator.com/2009/08/11/testing-erlang-gen_server-with-gen_server_mock/)
+* Work inspired by [this post](http://erlang.org/pipermail/erlang-questions/2008-April/034140.html)
+* [Github Repo](http://github.com/jashmenn/gen_server_mock) (Patches readily accepted)
+* [Mocks Aren't Stubs](http://martinfowler.com/articles/mocksArentStubs.html)
+
 ## Authors
 
 * Nate Murray \<nmurray [AT] attinteractive.com\> [github](http://github.com/jashmenn)
