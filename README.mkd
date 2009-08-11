@@ -2,7 +2,7 @@ gen_server_mock.erl - gen_server mocking
 ===================
 
 ## Summary
-`gen_server` mocking. This project is functional but still young.
+`gen_server` mocking. This project is functioning but still young.
 
 ## Example
 
