@@ -13,7 +13,7 @@
 -behaviour(gen_server).
 
 % API
--export([new/0, stop/1,
+-export([new/0, new/1, stop/1,
         expect/3, expect_call/2, expect_info/2, expect_cast/2,
         assert_expectations/1]).
 
@@ -100,20 +100,65 @@ new() ->
             {error, Other}
     end.
 
+%%--------------------------------------------------------------------
+%% Function: new(N) when is_integer(N) -> [Pids]
+%% Description: Return multiple Mock gen_servers
+%%--------------------------------------------------------------------
+new(N) when is_integer(N) -> % list() of Pids
+    lists:map(fun(_) -> {ok, Mock} = new(), Mock end, lists:seq(1, N)).
+
+%%--------------------------------------------------------------------
+%% Function: expect(Mock, Type, Callback) -> ok
+%% Types: Mock = pid()
+%%        Type = atom() = call | cast | info 
+%%        Callback = fun(Args) -> ok | {ok, NewState} | {ok, ResponseValue, NewState}
+%%          Args matches signature of handle_* in gen_server. e.g. handle_call
+%% 
+%% Description: Set an expectation of Type
+%%--------------------------------------------------------------------
 expect(Mock, Type, Callback) ->
     Exp = #expectation{type=Type, lambda=Callback},
     added = gen_server:call(Mock, {expect, Exp}),
     ok.
 
+%%--------------------------------------------------------------------
+%% Function: expect_call(Mock, Callback) -> ok
+%% Types: Mock = pid()
+%%        Callback = fun(Args) -> ok | {ok, NewState} | {ok, ResponseValue, NewState}
+%%          Args matches signature of handle_call in gen_server.
+%% 
+%% Description: Set a call expectation
+%%--------------------------------------------------------------------
 expect_call(Mock, Callback) ->
     expect(Mock, call, Callback).
 
+%%--------------------------------------------------------------------
+%% Function: expect_info(Mock, Callback) -> ok
+%% Types: Mock = pid()
+%%        Callback = fun(Args) -> ok | {ok, NewState} | {ok, ResponseValue, NewState}
+%%          Args matches signature of handle_info in gen_server.
+%% 
+%% Description: Set a info expectation
+%%--------------------------------------------------------------------
 expect_info(Mock, Callback) ->
     expect(Mock, info, Callback).
 
+%%--------------------------------------------------------------------
+%% Function: expect_cast(Mock, Callback) -> ok
+%% Types: Mock = pid()
+%%        Callback = fun(Args) -> ok | {ok, NewState} | {ok, ResponseValue, NewState}
+%%          Args matches signature of handle_cast in gen_server.
+%% 
+%% Description: Set a cast expectation
+%%--------------------------------------------------------------------
 expect_cast(Mock, Callback) ->
     expect(Mock, cast, Callback).
 
+%%--------------------------------------------------------------------
+%% Function: assert_expectations(Mock)-> ok
+%% Types: Mock = pid() | [Mocks]
+%% Description: Ensure expectations were fully met
+%%--------------------------------------------------------------------
 assert_expectations(Mock) when is_pid(Mock) ->
     assert_expectations([Mock]);
 assert_expectations([H|T]) ->
@@ -122,6 +167,11 @@ assert_expectations([H|T]) ->
 assert_expectations([]) ->
     ok.
 
+%%--------------------------------------------------------------------
+%% Function: stop(Mock)-> ok
+%% Types: Mock = pid() | [Mocks]
+%% Description: Stop the Mock gen_server normally
+%%--------------------------------------------------------------------
 stop(H) when is_pid(H) ->
     stop([H]);
 stop([H|T]) ->
