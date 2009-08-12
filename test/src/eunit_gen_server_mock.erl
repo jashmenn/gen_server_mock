@@ -36,6 +36,15 @@ everything_working_normally_test_not() ->
       end
   }.
 
+names_work_too_test_() ->
+	{
+		setup, fun setup/0, fun teardown/1,
+		fun () ->
+			{ok, Mock} = gen_server_mock:named({local, testname}),
+			?assertEqual(Mock, whereis(testname))
+		end
+	}.
+
 missing_expectations_test_not() ->
   {
       setup, fun setup/0, fun teardown/1,
