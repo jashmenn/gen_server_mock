@@ -7,3 +7,8 @@ html
 README.html
 .gen_cluster_session.vim
 coverage
+*@*
+
+build/*
+.*.swp
+*.xcodeproj
