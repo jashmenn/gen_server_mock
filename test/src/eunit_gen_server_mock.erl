@@ -15,12 +15,12 @@ end).
     end)())).
 
 setup() ->
-    ok.
+  ok.
 
 teardown(_Arg) ->
-    ok.
+  ok.
 
-everything_working_normally_test_not() ->
+everything_working_normally_test_not_test_() ->
   {
       setup, fun setup/0, fun teardown/1,
       fun () ->
@@ -36,7 +36,7 @@ everything_working_normally_test_not() ->
       end
   }.
 
-missing_expectations_test_not() ->
+missing_expectations_test_not_test_() ->
   {
       setup, fun setup/0, fun teardown/1,
       fun () ->
@@ -57,7 +57,7 @@ missing_expectations_test_not() ->
       end
   }.
 
-unexpected_messages_test_not() ->
+unexpected_messages_test_not_test_() ->
   {
       setup, fun setup/0, fun teardown/1,
       fun () ->
