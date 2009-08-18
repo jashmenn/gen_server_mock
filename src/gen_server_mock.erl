@@ -13,7 +13,7 @@
 -behaviour(gen_server).
 
 % API
--export([new/0, new/1, stop/1,
+-export([new/0, new/1, stop/1, crash/1,
         expect/3, expect_call/2, expect_info/2, expect_cast/2,
         assert_expectations/1]).
 
@@ -180,6 +180,16 @@ stop([H|T]) ->
 stop([]) ->
     ok.
 
+crash(H) when is_pid(H) ->
+    crash([H]);
+crash([H|T]) ->
+    gen_server:cast(H, {'$gen_server_mock', crash}),
+    crash(T);
+crash([]) ->
+    ok.
+
+
+
 %%====================================================================
 %% gen_server callbacks
 %%====================================================================
@@ -230,6 +240,8 @@ handle_call(Request, From, State) ->
 %%--------------------------------------------------------------------
 handle_cast({'$gen_server_mock', stop}, State) -> 
     {stop, normal, State};
+handle_cast({'$gen_server_mock', crash}, State) -> 
+    {stop, crash, State};
 handle_cast(Msg, State) -> 
     {ok, _Reply, NewState} = reply_with_next_expectation(cast, undef, undef, Msg, undef, State),
     {noreply, NewState}.
