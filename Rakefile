@@ -15,7 +15,9 @@ end
 # TODOlist for generator
 # add utils/make_boot
 # generate an application
- 
+directory 'ebin'
+directory 'test/ebin'
+
 def ebin_dirs
   Dir[File.dirname(__FILE__) + "/ebin"]  +
   Dir[File.dirname(__FILE__) + "/**/deps/**/ebin"] +
@@ -32,7 +34,7 @@ task :boot => [:compile] do
 end
 
 remove_task :compile
-task :compile do
+task :compile => ['ebin', 'test/ebin'] do
   sh "#{erl} -pa #{ebin_dirs} -noinput +B -eval 'case make:all() of up_to_date -> halt(0); error -> halt(1) end.'", :verbose => true
 end
 
