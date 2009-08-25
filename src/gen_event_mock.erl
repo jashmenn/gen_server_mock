@@ -7,6 +7,18 @@
 %%%
 %%% Created       :  8/25/09
 %%%-------------------------------------------------------------------
+
+%% @doc  Gen_event_mock has to bend around gen_event a bit to work properly.
+%% While it is possible to start a gen event as a mock, it is generally better
+%% to have a gen_event already running, but to swap the appropriate handler.
+%% for example:
+%%
+%%	{ok, Logger} = gen_event:start({local, logger}),
+%%	gen_event:add_handler(logger, log_module, []),
+%%		% now supplant with the mock module
+%%	gen_event_mock:supplant(logger, {log_module, []})
+%%		% you can now properly check that calls occur, as well as notifyies.
+
 -module(gen_event_mock).
 -behaviour(gen_event).
 
