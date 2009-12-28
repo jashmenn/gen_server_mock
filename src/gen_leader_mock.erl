@@ -1,7 +1,7 @@
 %%%-------------------------------------------------------------------
 %%% File          : gen_leader_mock.erl
 %%% Author        : Micah Warren
-%%% Organization  : SpiceCSM
+%%% Organization  : OpenACD
 %%% Project       : gen_server_mock
 %%% Description   : 
 %%%
