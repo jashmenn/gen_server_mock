@@ -122,8 +122,10 @@ expect_event(Mock, Callback) ->
 expect_info(Mock, Callback) ->
 	expect(Mock, info, Callback).
 
-assert_expectations(Mock) when is_pid(Mock) ->
+assert_expectations(Mock) when is_pid(Mock); is_atom(Mock) ->
     assert_expectations([Mock]);
+assert_expectations([H|T]) when is_atom(H) ->
+	assert_expectations([whereis(H) | T]);
 assert_expectations([H|T]) ->
     case gen_event:call(H, ?MODULE, assert_expectations) of
 		ok ->
@@ -135,7 +137,7 @@ assert_expectations([H|T]) ->
 assert_expectations([]) ->
     ok.
 
-stop(H) when is_pid(H) ->
+stop(H) when is_pid(H); is_atom(H) ->
     stop([H]);
 stop([H|T]) ->
     gen_event:stop(H),
