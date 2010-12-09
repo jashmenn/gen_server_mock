@@ -8,6 +8,9 @@ README.html
 .gen_cluster_session.vim
 coverage
 *@*
+ebin/*
+deps/*
+.eunit/*
 
 build/*
 .*.swp
