@@ -1,0 +1,7 @@
+{application,gen_server_mock,
+             [{description,"Mocking up gen behaviours"},
+              {vsn,"0.0.5"},
+              {registered,[]},
+              {applications,[kernel,stdlib]},
+              {env,[]}]}.
+
