@@ -40,8 +40,10 @@ names_work_too_test_() ->
 	{
 		setup, fun setup/0, fun teardown/1,
 		fun () ->
-			{ok, Mock} = gen_server_mock:named({local, testname}),
-			?assertEqual(Mock, whereis(testname))
+			Trynames = [testname, foo, bar, baz, fie, hi, bye],
+			[Nom | _] = lists:dropwhile(fun(A) -> undefined =/= whereis(A) end, Trynames),
+			{ok, Mock} = gen_server_mock:named({local, Nom}),
+			?assertEqual(Mock, whereis(Nom))
 		end
 	}.
 
