@@ -10,6 +10,7 @@ end).
 
 -define(exit_error_name(Exception),
     ((fun () ->
+	error_logger:info_report([{"exception", Exception}]),
     {{{ErrorName, _Info }, _Trace }, _MoreInfo} = Exception,
     ErrorName
     end)())).
@@ -47,28 +48,34 @@ names_work_too_test_() ->
 		end
 	}.
 
-missing_expectations_test_() ->
+missing_expectations_test_t() ->
   {
       setup, fun setup/0, fun teardown/1,
       fun () ->
          {ok, Mock} = gen_server_mock:new(),
+		error_logger:info_report([{"mock", Mock},{"myself", self()}]),
          gen_server_mock:expect(Mock, call, fun({foo, hi}, _From, _State) -> ok end),
          gen_server_mock:expect_call(Mock, fun({bar, bye}, _From, _State) -> ok end),
-
+		error_logger:info_report("expectations set"),
          ok = gen_server:call(Mock, {foo, hi}),  
 
-         %% TODO - hide the gen_server termination ERROR REPORT
-         Result = try gen_server_mock:assert_expectations(Mock)
-         catch
-             exit:Exception -> Exception
-         end,
-         ErrorName = ?exit_error_name(Result),
-         ?assertEqual(unmet_gen_server_expectation, ErrorName),
+         % TODO - hide the gen_server termination ERROR REPORT
+%         Result = try gen_server_mock:assert_expectations(Mock) of
+%			What ->
+%				error_logger:info_report([{"what?", What}]),
+%				?assert(What)
+%         catch
+%             exit:Exception -> Exception
+%         end,
+%		ErrorName = ?exit_error_name(Result),
+%         ?assertEqual(unmet_gen_server_expectation, ErrorName),
+    %{{{ErrorName, _Info }, _Trace }, _MoreInfo} = Exception,
+		?assertExit({{{unmet_gen_server_expectation, _}, _}, _}, gen_server_mock:assert_expectations(Mock)),
          {ok}
       end
   }.
 
-unexpected_messages_test_not_test_() ->
+unexpected_messages_test_not_test_t() ->
   {
       setup, fun setup/0, fun teardown/1,
       fun () ->
@@ -87,7 +94,7 @@ unexpected_messages_test_not_test_() ->
       end
   }.
 
-special_return_values_test_() ->
+special_return_values_test_t() ->
   {
       setup, fun setup/0, fun teardown/1,
       fun () ->
@@ -111,3 +118,10 @@ special_return_values_test_() ->
          {ok}
       end
   }.
+
+all_test_() ->
+	{inorder, [
+		fun missing_expectations_test_t/0,
+		fun unexpected_messages_test_not_test_t/0,
+		fun special_return_values_test_t/0
+	]}.
