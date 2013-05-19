@@ -1,0 +1,7 @@
+%% -*- erlang -*-
+  {application, gen_server_mock,
+   [{description, "gen_server_mock"},
+    {vsn, "0.0.5"},
+    {modules, []},
+    {registered, []},
+    {applications, [kernel, stdlib]}]}.
