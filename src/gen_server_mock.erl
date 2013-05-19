@@ -39,7 +39,7 @@
     ((fun () ->
         case (BoolExpr) of
         true -> ok;
-        __V -> .erlang:error({assertion_failed,
+        __V -> erlang:error({assertion_failed,
                       [{module, ?MODULE},
                        {line, ?LINE},
                        {expression, (??BoolExpr)},
