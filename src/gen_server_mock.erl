@@ -13,7 +13,7 @@
 -behaviour(gen_server).
 
 % API
--export([new/0, new/1, stop/1, crash/1,
+-export([new/0, new/1, named/1, named/2, stop/1, crash/1,
         expect/3, expect_call/2, expect_info/2, expect_cast/2,
         assert_expectations/1]).
 
@@ -106,6 +106,20 @@ new() ->
 %%--------------------------------------------------------------------
 new(N) when is_integer(N) -> % list() of Pids
     lists:map(fun(_) -> {ok, Mock} = new(), Mock end, lists:seq(1, N)).
+
+%%--------------------------------------------------------------------
+%% Function: named(N) -> {ok, Mock} | {error, Error}
+%% Description: alias for named(Name, []).
+%%--------------------------------------------------------------------
+named(Name) ->
+	named(Name, []).
+
+%%--------------------------------------------------------------------
+%% Function: named(Name, Config) -> {ok, Mock} | {error, Error}
+%% Description: Starts the server named.
+%%--------------------------------------------------------------------
+named(Name, Config) ->
+	gen_server:start_link(Name, ?MODULE, [Config], []).
 
 %%--------------------------------------------------------------------
 %% Function: expect(Mock, Type, Callback) -> ok
